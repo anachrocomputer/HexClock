@@ -1,3 +1,6 @@
+![Static Badge](https://img.shields.io/badge/MCU-ATmega328-green "MCU:ATmega328")
+![Static Badge](https://img.shields.io/badge/BOARD-Arduino-green "BOARD:Arduino")
+
 # HexClock #
 
 This Arduino sketch implements a clock with three different display formats:
