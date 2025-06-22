@@ -63,9 +63,12 @@ void setup(void)
   int hour, minute, second;
 
   Serial.begin(9600);
-  
-  hour = 12;
-  minute = 0;
+
+  // 18:12 is the latest time that can be converted to hex without
+  // overflowing the 32-bit intermediate result. To make this setup
+  // code work correctly for any time of day, we need 64-bit arithmetic
+  hour = 18;
+  minute = 12;
   second = 0;
   
   SecondsPastMidnight = asSeconds(hour, minute, second);
