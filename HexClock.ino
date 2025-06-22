@@ -82,31 +82,48 @@ void loop(void)
   uint32_t uPeriod;
   uint32_t mPeriod;
   uint32_t dPeriod;
+  uint32_t now;
+  bool hexUpdate = false;
+  bool decUpdate = false;
+  bool stdUpdate = false;
 
+  now = millis();
+  
   uPeriod = micros() + USEC_PER_HEXOND;
-  mPeriod = millis() + 1000UL;
-  dPeriod = millis() + 8640UL;
+  mPeriod = now + 1000UL;
+  dPeriod = now + 8640UL;
   
   while (1) {
+    now = millis();
+    
     if (micros() > uPeriod) {
       uPeriod = micros() + USEC_PER_HEXOND;
       HexTime++;
-      ShowTime(true, false);
+      hexUpdate = true;
       //Serial.println("HEXOND");
     }
 
-    if (millis() > mPeriod) {
-      mPeriod = millis() + 1000UL;
+    if (now > mPeriod) {
+      mPeriod = now + 1000UL;
       SecondsPastMidnight++;
-      ShowTime(false, false);
+      stdUpdate = true;
       //Serial.println("SECOND");
     }
 
-    if (millis() > dPeriod) {
-      dPeriod = millis() + 8640UL;
+    if (now > dPeriod) {
+      dPeriod = now + 8640UL;
       DecTime++;
-      ShowTime(false, true);
+      decUpdate = true;
       //Serial.println("100 uDays");
+    }
+
+    // Conjunction logic does not work because updates do not occur
+    // on exactly the same millisecond
+    if (hexUpdate || decUpdate || stdUpdate) {
+      ShowTime(hexUpdate && stdUpdate, decUpdate && stdUpdate);
+      hexUpdate = false;
+      decUpdate = false;
+      stdUpdate = false;
     }
   }
 }
