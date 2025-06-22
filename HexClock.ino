@@ -27,11 +27,13 @@
  */
 
 #define SECONDS_PER_DAY (24UL * 60UL * 60UL)  // 86400
-#define USEC_PER_HEXOND (1318359) // 1.318359 seconds
+#define USEC_PER_HEXOND  (1318359) //  1.318359 seconds
+#define USEC_PER_OCTOND (21093750) // 21.09375 seconds
 
 uint32_t SecondsPastMidnight = 0UL;
-uint16_t HexTime = 0UL;
-uint16_t DecTime = 0UL;
+uint16_t OctTime = 0U;
+uint16_t HexTime = 0U;
+uint16_t DecTime = 0U;
 
 
 uint32_t asSeconds(const int hours, const int minutes, const int seconds)
@@ -52,7 +54,7 @@ void ShowTime(const bool hexConjunction, const bool decConjunction)
   minute = (SecondsPastMidnight - (hour * 60UL * 60UL)) / 60UL;
   second = SecondsPastMidnight % 60;
   
-  snprintf(buf, sizeof (buf), "%04x %c %02d:%02d:%02d %c %04d\n", HexTime, h, hour, minute, second, d, DecTime);
+  snprintf(buf, sizeof (buf), "%04x %04o %c %02d:%02d:%02d %c %04d\n", HexTime, OctTime, h, hour, minute, second, d, DecTime);
   Serial.print(buf);
   Serial.flush();
 }
@@ -72,6 +74,7 @@ void setup(void)
   second = 0;
   
   SecondsPastMidnight = asSeconds(hour, minute, second);
+  OctTime = (SecondsPastMidnight * 4096UL) / SECONDS_PER_DAY;
   HexTime = (SecondsPastMidnight * 65536UL) / SECONDS_PER_DAY;
   DecTime = (SecondsPastMidnight * 10000UL) / SECONDS_PER_DAY;
 }
@@ -79,22 +82,32 @@ void setup(void)
 
 void loop(void)
 {
+  uint32_t oPeriod;
   uint32_t uPeriod;
   uint32_t mPeriod;
   uint32_t dPeriod;
   uint32_t now;
+  bool octUpdate = false;
   bool hexUpdate = false;
   bool decUpdate = false;
   bool stdUpdate = false;
 
   now = millis();
   
+  oPeriod = micros() + USEC_PER_OCTOND;
   uPeriod = micros() + USEC_PER_HEXOND;
   mPeriod = now + 1000UL;
   dPeriod = now + 8640UL;
   
   while (1) {
     now = millis();
+    
+    if (micros() > oPeriod) {
+      oPeriod = micros() + USEC_PER_OCTOND;
+      OctTime++;
+      octUpdate = true;
+      //Serial.println("OCTOND");
+    }
     
     if (micros() > uPeriod) {
       uPeriod = micros() + USEC_PER_HEXOND;
@@ -119,8 +132,9 @@ void loop(void)
 
     // Conjunction logic does not work because updates do not occur
     // on exactly the same millisecond
-    if (hexUpdate || decUpdate || stdUpdate) {
+    if (octUpdate || hexUpdate || decUpdate || stdUpdate) {
       ShowTime(hexUpdate && stdUpdate, decUpdate && stdUpdate);
+      octUpdate = false;
       hexUpdate = false;
       decUpdate = false;
       stdUpdate = false;

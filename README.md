@@ -3,12 +3,15 @@
 
 # HexClock #
 
-This Arduino sketch implements a clock with three different display formats:
+This Arduino sketch implements a clock with four different display formats:
 * Ordinary hours, minutes, and seconds
+* Octal time, 00000 to 07777
 * Hexadecimal time, 0x0000 to 0xFFFF
 * Decimal or percentage time, 00.00 to 99.99
 
-The actual display will be added later as four 7-segment digits.
+The actual display will be added later as four 7-segment digits
+or four decimal digit displays.
+Six digits would only be needed to show seconds in standard time format.
 
 ## TODO ##
 
@@ -16,8 +19,8 @@ The display will work with any type of 7-segment display,
 e.g. vacuum fluorescent, LED, LCD,
 Panaplex, Numitron,
 electromechanical flip-type.
-If we add octal times (0000-7777) then the display will be compatible with
-Nixie tubes,
+If we limit ourselves to octal times (0000-7777) then the display will be
+compatible with Nixie tubes,
 edge-lit digits,
 projection displays,
 and any other type of decimal (0-9) digit displays.
