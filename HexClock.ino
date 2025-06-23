@@ -54,7 +54,7 @@ void ShowTime(const bool hexConjunction, const bool decConjunction)
   minute = (SecondsPastMidnight - (hour * 60UL * 60UL)) / 60UL;
   second = SecondsPastMidnight % 60;
   
-  snprintf(buf, sizeof (buf), "%04x %04o %c %02d:%02d:%02d %c %04d\n", HexTime, OctTime, h, hour, minute, second, d, DecTime);
+  snprintf(buf, sizeof (buf), "%04x %c %04o %c %02d:%02d:%02d %c %04d\n", HexTime, ' ', OctTime, h, hour, minute, second, d, DecTime);
   Serial.print(buf);
   Serial.flush();
 }
@@ -66,16 +66,19 @@ void setup(void)
 
   Serial.begin(9600);
 
-  // 18:12 is the latest time that can be converted to hex without
-  // overflowing the 32-bit intermediate result. To make this setup
-  // code work correctly for any time of day, we need 64-bit arithmetic
-  hour = 18;
-  minute = 12;
+  // Start just before midnight to test wrap-around
+  hour = 23;
+  minute = 59;
   second = 0;
-  
+
   SecondsPastMidnight = asSeconds(hour, minute, second);
+
+  // We really need to write:
+  // HexTime = (SecondsPastMidnight * 65536UL) / SECONDS_PER_DAY;
+  // but this causes a 32-bit integer overflow. So we divide both
+  // constants by 128 to get 512 and 675
   OctTime = (SecondsPastMidnight * 4096UL) / SECONDS_PER_DAY;
-  HexTime = (SecondsPastMidnight * 65536UL) / SECONDS_PER_DAY;
+  HexTime = (SecondsPastMidnight * 512UL) / 675UL;
   DecTime = (SecondsPastMidnight * 10000UL) / SECONDS_PER_DAY;
 }
 
@@ -104,28 +107,40 @@ void loop(void)
     
     if (micros() > oPeriod) {
       oPeriod = micros() + USEC_PER_OCTOND;
-      OctTime++;
+      if (OctTime < 4095u)
+        OctTime++;
+      else
+        OctTime = 0u;
       octUpdate = true;
       //Serial.println("OCTOND");
     }
     
     if (micros() > uPeriod) {
       uPeriod = micros() + USEC_PER_HEXOND;
-      HexTime++;
+      if (HexTime < 65535u)
+        HexTime++;
+      else
+        HexTime = 0u;
       hexUpdate = true;
       //Serial.println("HEXOND");
     }
 
     if (now > mPeriod) {
       mPeriod = now + 1000UL;
-      SecondsPastMidnight++;
+      if (SecondsPastMidnight < (SECONDS_PER_DAY - 1))
+        SecondsPastMidnight++;
+      else
+        SecondsPastMidnight = 0UL;
       stdUpdate = true;
       //Serial.println("SECOND");
     }
 
     if (now > dPeriod) {
       dPeriod = now + 8640UL;
-      DecTime++;
+      if (DecTime < 9999u)
+        DecTime++;
+      else
+        DecTime = 0u;
       decUpdate = true;
       //Serial.println("100 uDays");
     }
