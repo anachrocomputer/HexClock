@@ -30,6 +30,13 @@
 #define USEC_PER_HEXOND  (1318359) //  1.318359 seconds
 #define USEC_PER_OCTOND (21093750) // 21.09375 seconds
 
+#include <avr/io.h>
+
+#define WR_PIN 7
+#define A0_PIN 8
+#define A1_PIN 9
+#define CS_PIN 10
+
 uint32_t SecondsPastMidnight = 0UL;
 uint16_t OctTime = 0U;
 uint16_t HexTime = 0U;
@@ -53,10 +60,51 @@ void ShowTime(const bool hexConjunction, const bool decConjunction)
   hour = SecondsPastMidnight / (60UL * 60UL);
   minute = (SecondsPastMidnight - (hour * 60UL * 60UL)) / 60UL;
   second = SecondsPastMidnight % 60;
-  
+
+#ifdef SERIAL_OUTPUT
   snprintf(buf, sizeof (buf), "%04x %c %04o %c %02d:%02d:%02d %c %04d\n", HexTime, ' ', OctTime, h, hour, minute, second, d, DecTime);
   Serial.print(buf);
   Serial.flush();
+#else
+  snprintf(buf, sizeof (buf), "%04X", HexTime);
+  int i;
+  for (i = 0; i < 4; i++) {
+    HMDL2416Write(3 - i, buf[i]);
+  }
+#endif
+}
+
+
+void HMDL2416Write(int digit, int ch)
+{
+  switch (digit) {
+  case 0:
+    digitalWrite(A0_PIN, LOW);
+    digitalWrite(A1_PIN, LOW);
+    break;
+  case 1:
+    digitalWrite(A0_PIN, HIGH);
+    digitalWrite(A1_PIN, LOW);
+    break;
+  case 2:
+    digitalWrite(A0_PIN, LOW);
+    digitalWrite(A1_PIN, HIGH);
+    break;
+  case 3:
+    digitalWrite(A0_PIN, HIGH);
+    digitalWrite(A1_PIN, HIGH);
+    break;
+  }
+  
+  PORTD = ch | 0x80;
+  
+  digitalWrite(CS_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(WR_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(WR_PIN, HIGH);
+  delayMicroseconds(2);
+  digitalWrite(CS_PIN, HIGH);
 }
 
 
@@ -64,8 +112,28 @@ void setup(void)
 {
   int hour, minute, second;
 
+#ifdef SERIAL_OUTPUT
   Serial.begin(9600);
-
+#else
+  int i;
+  
+  pinMode(WR_PIN, OUTPUT);
+  pinMode(A0_PIN, OUTPUT);
+  pinMode(A1_PIN, OUTPUT);
+  pinMode(CS_PIN, OUTPUT);
+  
+  for (i = 0; i < 7; i++)
+    pinMode(i, OUTPUT);
+  
+  digitalWrite(WR_PIN, HIGH);
+  digitalWrite(CS_PIN, HIGH);
+  digitalWrite(A0_PIN, LOW);
+  digitalWrite(A1_PIN, LOW);
+  
+  for (i = 0; i < 7; i++)
+    digitalWrite(i, LOW);
+#endif
+  
   // Start just before midnight to test wrap-around
   hour = 23;
   minute = 59;
