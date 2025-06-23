@@ -1,5 +1,6 @@
 ![Static Badge](https://img.shields.io/badge/MCU-ATmega328-green "MCU:ATmega328")
 ![Static Badge](https://img.shields.io/badge/BOARD-Arduino-green "BOARD:Arduino")
+![Static Badge](https://img.shields.io/badge/DISPLAY-HMDL2416-green "DISPLAY:HMDL2416")
 
 # HexClock #
 
@@ -9,9 +10,29 @@ This Arduino sketch implements a clock with four different display formats:
 * Hexadecimal time, 0x0000 to 0xFFFF
 * Decimal or percentage time, 00.00 to 99.99
 
-The actual display will be added later as four 7-segment digits
-or four decimal digit displays.
+The actual display is optional at present, as four 7-segment digits
+on an LED display.
 Six digits would only be needed to show seconds in standard time format.
+
+## Optional Display ##
+
+A \#define in the code SERIAL_OUTPUT should be defined to select standard
+Arduino serial output at 9600 baud.
+This is more useful for debugging,
+but cannot co-exist with the LED display.
+
+If that \#define is not present,
+the sketch will send the time in hex to an HP HMDL2416 16-segment
+four-digit display.
+The display is connected to the ATmega PORT D,
+and the control signals are to Arduino digital I/O pins.
+Only hex time is displayed at present.
+
+## Real-Time Clock ##
+
+A non-volatile real-time clock module using the DS3231 should be connected
+to the Arduino's I2C pins (A4 and A5) along with 10k pull-up resistors.
+This will be used to read the time and date at start-up.
 
 ## TODO ##
 
@@ -27,6 +48,13 @@ and any other type of decimal (0-9) digit displays.
 
 Some Numitron displays have Russian Postcode digits,
 with two additional diagonal segments within the usual 7-segment arrangement.
+
+Add a way to select which time format is desired on the display.
+Probably using an analog input pin because we're getting a bit short of digital pins.
+
+Change the display wiring to allow use of serial pins D0 and D1 at the same
+time as the display is connected.
+This should eliminate the need for #define SERIAL_OUTPUT.
 
 ## Example Times ##
 

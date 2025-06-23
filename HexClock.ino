@@ -1,5 +1,7 @@
 /* HexClock --- display time in hex and percentage          2024-06-14 */
 
+//#define SERIAL_OUTPUT
+
 /*
  * Hex time runs from 0x0000 at midnight to 0x8000 at midday and then 
  * to 0xFFFF just before the next midnight. 6am is 0x4000 and 6pm 
@@ -30,12 +32,22 @@
 #define USEC_PER_HEXOND  (1318359) //  1.318359 seconds
 #define USEC_PER_OCTOND (21093750) // 21.09375 seconds
 
+// Direct port I/O for HMDL2416 display
 #include <avr/io.h>
 
 #define WR_PIN 7
 #define A0_PIN 8
 #define A1_PIN 9
 #define CS_PIN 10
+
+// I2C setup for DS3231 real-time clock chip
+#include <Wire.h>
+
+#define DS3231_ADDR    (0x68)
+
+char *Dayname[8] = {
+  "", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"
+};
 
 uint32_t SecondsPastMidnight = 0UL;
 uint16_t OctTime = 0U;
@@ -108,9 +120,50 @@ void HMDL2416Write(int digit, int ch)
 }
 
 
+int bcd2bin(int bcd)
+{
+  return (((bcd >> 4) * 10) + (bcd & 0x0f));
+}
+
+
+int bin2bcd(int bin)
+{
+  return (((bin / 10) << 4) + (bin % 10));
+}
+
+
+void DS3231Set(int year, int month, int day, int hour, int minute, int second, int dow)
+{
+  byte ds3231[0x13];
+  int reg;
+  
+  ds3231[0] = bin2bcd(second);
+  ds3231[1] = bin2bcd(minute);
+  ds3231[2] = bin2bcd(hour);
+  ds3231[3] = bin2bcd(dow);
+  ds3231[4] = bin2bcd(day);
+  ds3231[5] = bin2bcd(month);
+  ds3231[6] = bin2bcd(year % 100);
+  
+  if (year > 1999)
+    ds3231[5] |= 0x80;
+  
+  for (reg = 0; reg < 0x07; reg++) {  
+    Wire.beginTransmission(DS3231_ADDR);
+    Wire.write((byte)reg);
+    Wire.write(ds3231[reg]);
+    Wire.endTransmission();
+  }
+}
+
+
 void setup(void)
 {
+  int reg, val;
+  byte ds3231[0x13];
+  int year, month, day, dow;
   int hour, minute, second;
+  char buf[64];
 
 #ifdef SERIAL_OUTPUT
   Serial.begin(9600);
@@ -133,11 +186,53 @@ void setup(void)
   for (i = 0; i < 7; i++)
     digitalWrite(i, LOW);
 #endif
+
+  Wire.begin();
+  //DS3231Set (2025, 6, 23, 22, 24, 00, 1);
+
+  for (reg = 0; reg < 0x13; reg++) {  
+    Wire.beginTransmission(DS3231_ADDR);
+    Wire.write((byte)reg);
+    Wire.endTransmission();
   
+    Wire.requestFrom(DS3231_ADDR, 1);
+    val = Wire.read();
+    Wire.endTransmission();
+    
+    ds3231[reg] = val;
+    
+    //Serial.print("reg = ");
+    //Serial.print(reg, HEX);
+    //Serial.print(", val = ");
+    //Serial.println(val, HEX);
+  }
+  
+  second = bcd2bin(ds3231[0]);
+  minute = bcd2bin(ds3231[1]);
+  hour = bcd2bin(ds3231[2] & 0x3f);
+  
+  dow = ds3231[3] & 0x07;
+  
+  day = bcd2bin(ds3231[4]);
+  month = bcd2bin(ds3231[5] & 0x1f);
+  year = bcd2bin(ds3231[6]);
+  
+  if (ds3231[5] & 0x80)
+    year += 2000;
+  else
+    year += 1900;
+  
+#ifdef SERIAL_OUTPUT
+  snprintf(buf, 64, "%04d-%02d-%02dT%02d:%02d:%02d %s\n",
+                     year, month, day, hour, minute, second, Dayname[dow]);
+  
+  Serial.print(buf);
+#endif
+
   // Start just before midnight to test wrap-around
-  hour = 23;
-  minute = 59;
-  second = 0;
+  //hour = 23;
+  //minute = 59;
+  //second = 0;
 
   SecondsPastMidnight = asSeconds(hour, minute, second);
 
