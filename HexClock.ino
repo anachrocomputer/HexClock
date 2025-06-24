@@ -49,6 +49,8 @@ char *Dayname[8] = {
   "", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"
 };
 
+enum {HEX_DISPLAY, OCT_DISPLAY, DEC_DISPLAY, STD_DISPLAY};
+
 uint32_t SecondsPastMidnight = 0UL;
 uint16_t OctTime = 0U;
 uint16_t HexTime = 0U;
@@ -61,8 +63,9 @@ uint32_t asSeconds(const int hours, const int minutes, const int seconds)
 }
 
 
-void ShowTime(const bool hexConjunction, const bool decConjunction)
+void ShowTime(const int displayFormat, const bool hexConjunction, const bool decConjunction)
 {
+  int i;
   int hour, minute, second;
   char buf[64];
 
@@ -78,11 +81,22 @@ void ShowTime(const bool hexConjunction, const bool decConjunction)
   Serial.print(buf);
   Serial.flush();
 #else
-  //snprintf(buf, sizeof (buf), "%04o", OctTime);
-  snprintf(buf, sizeof (buf), "%04X", HexTime);
-  //snprintf(buf, sizeof (buf), "%04d", DecTime);
-  //snprintf(buf, sizeof (buf), "%02d%02d", hour, minute);
-  int i;
+  switch (displayFormat)
+  {
+  case OCT_DISPLAY:
+    snprintf(buf, sizeof (buf), "%04o", OctTime);
+    break;
+  case HEX_DISPLAY:
+    snprintf(buf, sizeof (buf), "%04X", HexTime);
+    break;
+  case DEC_DISPLAY:
+    snprintf(buf, sizeof (buf), "%04d", DecTime);
+    break;
+  case STD_DISPLAY:
+    snprintf(buf, sizeof (buf), "%02d%02d", hour, minute);
+    break;
+  }
+  
   for (i = 0; i < 4; i++) {
     HMDL2416Write(3 - i, buf[i]);
   }
@@ -321,7 +335,7 @@ void loop(void)
     // Conjunction logic does not work because updates do not occur
     // on exactly the same millisecond
     if (octUpdate || hexUpdate || decUpdate || stdUpdate) {
-      ShowTime(hexUpdate && stdUpdate, decUpdate && stdUpdate);
+      ShowTime(HEX_DISPLAY, hexUpdate && stdUpdate, decUpdate && stdUpdate);
       octUpdate = false;
       hexUpdate = false;
       decUpdate = false;
