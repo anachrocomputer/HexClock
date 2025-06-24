@@ -78,7 +78,10 @@ void ShowTime(const bool hexConjunction, const bool decConjunction)
   Serial.print(buf);
   Serial.flush();
 #else
+  //snprintf(buf, sizeof (buf), "%04o", OctTime);
   snprintf(buf, sizeof (buf), "%04X", HexTime);
+  //snprintf(buf, sizeof (buf), "%04d", DecTime);
+  //snprintf(buf, sizeof (buf), "%02d%02d", hour, minute);
   int i;
   for (i = 0; i < 4; i++) {
     HMDL2416Write(3 - i, buf[i]);
@@ -198,8 +201,15 @@ void setup(void)
     Wire.requestFrom(DS3231_ADDR, 1);
     val = Wire.read();
     Wire.endTransmission();
-    
-    ds3231[reg] = val;
+
+    if (val >= 0)
+      ds3231[reg] = val;
+    else {
+      ds3231[reg] = 0;
+      Serial.print("DS3231 reg ");
+      Serial.print(reg);
+      Serial.println(": read failed");
+    }
     
     //Serial.print("reg = ");
     //Serial.print(reg, HEX);
