@@ -31,6 +31,7 @@
 #define SECONDS_PER_DAY (24UL * 60UL * 60UL)  // 86400
 #define USEC_PER_HEXOND  (1318359) //  1.318359 seconds
 #define USEC_PER_OCTOND (21093750) // 21.09375 seconds
+#define USEC_PER_SECOND  (1000000) //  1.0 seconds
 
 // Direct port I/O for HMDL2416 display
 #include <avr/io.h>
@@ -69,6 +70,7 @@ void ShowTime(const int displayFormat, const bool hexConjunction, const bool dec
   int hour, minute, second;
   char buf[64];
 
+  const char o = ' ';
   const char h = hexConjunction? '*': ' ';
   const char d = decConjunction? '*': ' ';
   
@@ -77,7 +79,7 @@ void ShowTime(const int displayFormat, const bool hexConjunction, const bool dec
   second = SecondsPastMidnight % 60;
 
 #ifdef SERIAL_OUTPUT
-  snprintf(buf, sizeof (buf), "%04x %c %04o %c %02d:%02d:%02d %c %04d\n", HexTime, ' ', OctTime, h, hour, minute, second, d, DecTime);
+  snprintf(buf, sizeof (buf), "%04x %c %04o %c %02d:%02d:%02d %c %04d\n", HexTime, h, OctTime, o, hour, minute, second, d, DecTime);
   Serial.print(buf);
   Serial.flush();
 #else
@@ -205,7 +207,7 @@ void setup(void)
 #endif
 
   Wire.begin();
-  //DS3231Set (2025, 6, 23, 22, 24, 00, 1);
+  //DS3231Set (2025, 6, 30, 19, 11, 30, 1);
 
   for (reg = 0; reg < 0x13; reg++) {  
     Wire.beginTransmission(DS3231_ADDR);
@@ -261,12 +263,12 @@ void setup(void)
   SecondsPastMidnight = asSeconds(hour, minute, second);
 
   // We really need to write:
-  // HexTime = (SecondsPastMidnight * 65536UL) / SECONDS_PER_DAY;
+  // HexTime = ((SecondsPastMidnight * 65536UL) + (SECONDS_PER_DAY / 2UL)) / SECONDS_PER_DAY;
   // but this causes a 32-bit integer overflow. So we divide both
   // constants by 128 to get 512 and 675
-  OctTime = (SecondsPastMidnight * 4096UL) / SECONDS_PER_DAY;
-  HexTime = (SecondsPastMidnight * 512UL) / 675UL;
-  DecTime = (SecondsPastMidnight * 10000UL) / SECONDS_PER_DAY;
+  OctTime = ((SecondsPastMidnight * 4096UL) + (SECONDS_PER_DAY / 2UL)) / SECONDS_PER_DAY;
+  HexTime = ((SecondsPastMidnight * 512UL) + (675UL / 2UL)) / 675UL;
+  DecTime = ((SecondsPastMidnight * 10000UL) + (SECONDS_PER_DAY / 2UL)) / SECONDS_PER_DAY;
 }
 
 
@@ -281,19 +283,20 @@ void loop(void)
   bool hexUpdate = false;
   bool decUpdate = false;
   bool stdUpdate = false;
+  int displayFormat = HEX_DISPLAY;
 
-  now = millis();
+  now = micros();
   
-  oPeriod = micros() + USEC_PER_OCTOND;
-  uPeriod = micros() + USEC_PER_HEXOND;
-  mPeriod = now + 1000UL;
-  dPeriod = now + 8640UL;
+  oPeriod = now + USEC_PER_OCTOND;
+  uPeriod = now + USEC_PER_HEXOND;
+  mPeriod = now + USEC_PER_SECOND;
+  dPeriod = now + 8640000UL;
   
   while (1) {
-    now = millis();
+    now = micros();
     
-    if (micros() > oPeriod) {
-      oPeriod = micros() + USEC_PER_OCTOND;
+    if (now > oPeriod) {
+      oPeriod = now + USEC_PER_OCTOND;
       if (OctTime < 4095u)
         OctTime++;
       else
@@ -302,8 +305,8 @@ void loop(void)
       //Serial.println("OCTOND");
     }
     
-    if (micros() > uPeriod) {
-      uPeriod = micros() + USEC_PER_HEXOND;
+    if (now > uPeriod) {
+      uPeriod = now + USEC_PER_HEXOND;
       if (HexTime < 65535u)
         HexTime++;
       else
@@ -313,7 +316,7 @@ void loop(void)
     }
 
     if (now > mPeriod) {
-      mPeriod = now + 1000UL;
+      mPeriod = now + USEC_PER_SECOND;
       if (SecondsPastMidnight < (SECONDS_PER_DAY - 1))
         SecondsPastMidnight++;
       else
@@ -323,7 +326,7 @@ void loop(void)
     }
 
     if (now > dPeriod) {
-      dPeriod = now + 8640UL;
+      dPeriod = now + 8640000UL;
       if (DecTime < 9999u)
         DecTime++;
       else
@@ -332,10 +335,8 @@ void loop(void)
       //Serial.println("100 uDays");
     }
 
-    // Conjunction logic does not work because updates do not occur
-    // on exactly the same millisecond
     if (octUpdate || hexUpdate || decUpdate || stdUpdate) {
-      ShowTime(HEX_DISPLAY, hexUpdate && stdUpdate, decUpdate && stdUpdate);
+      ShowTime(displayFormat, (SecondsPastMidnight % 675UL) == 0, (SecondsPastMidnight % 216UL) == 0);
       octUpdate = false;
       hexUpdate = false;
       decUpdate = false;
