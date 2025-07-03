@@ -2,6 +2,8 @@
 
 //#define SERIAL_OUTPUT
 
+#define DISPLAY_HEXLED
+
 /*
  * Hex time runs from 0x0000 at midnight to 0x8000 at midday and then 
  * to 0xFFFF just before the next midnight. 6am is 0x4000 and 6pm 
@@ -33,6 +35,76 @@
 #define USEC_PER_OCTOND (21093750) // 21.09375 seconds
 #define USEC_PER_SECOND  (1000000) //  1.0 seconds
 
+#define NDIGITS    (4)   // This program uses a four-digit display
+
+#ifdef DISPLAY_HEXLED
+// Pin connections from LED board to Arduino board
+// 1 VLED +5V (LED power, OK to use Arduino +5V for a single digit)
+// 2 VCC  +5V (TLC5916 chip power)
+// 3 SDI  D11 (Serial Data In on TLC5916)
+// 4 SDO  no connection (Serial Data out on TLC5916, unused)
+// 5 LE   D10 (Latch Enable on TLC5916)
+// 6 OE   GND (Output Enable, unused in this test, GND to enable)
+// 7 SCK  D13 (Serial Clock to TLC5916)
+// 8 GND  GND (Ground to both LEDs and chip)
+//
+#define LE_PIN 10   // Arduino digital pin 10
+#define SDA_PIN 11  // Arduino digital pin 11
+#define SCK_PIN 13  // Arduino digital pin 13
+/* OE pin grounded */
+
+// 'F' is #defined as a macro by Arduino framework. Use an int instead
+const int F = (1 << 14);
+
+// Usual 7-segment names
+#define A  (1 << 8)
+#define B  (1 << 0)
+#define C  (1 << 2)
+#define D  (1 << 4)
+#define E  (1 << 11)
+//#define F  (1 << 14)
+#define G  (1 << 10)
+#define DP (1 << 12)
+
+// Additional dot names
+#define H (1 << 1)
+#define I (1 << 3)
+#define J (1 << 9)
+#define K (1 << 6)
+#define L (1 << 15)
+#define M (1 << 13)
+#define COLON (1 << 5)
+
+// LED layout on PCB:
+//
+//     H C C I
+//     B     D
+//     B     D
+//     J G G K
+//     A     E
+//     A     E
+//     L F F M DP
+
+// Table of 14-segment digits 0-9 and A-F
+const unsigned int HDSPsegtab[16] = {
+  A | B | C | D | E | F | J | K,         // 0
+  D | E | I | K | M,                     // 1
+  A | C | D | F | G | H | L | M,         // 2
+  C | D | E | F | G | H | L,             // 3
+  B | D | E | G | H | J | K | M,         // 4
+  B | C | E | F | G | H | I | J | L,     // 5
+  A | B | C | E | F | G | J,             // 6
+  C | D | E | H | I | K | M,             // 7
+  A | B | C | D | E | F | G,             // 8
+  B | C | D | E | F | G | K,             // 9
+  A | B | C | D | E | G | J | K | L | M, // A
+  A | B | C | D | E | F | G | H | J | L, // B
+  A | B | C | F | I | J | M,             // C
+  A | B | C | D | E | F | H | J | K | L, // D
+  A | B | C | F | G | H | I | J | L | M, // E
+  A | B | C | G | H | I | J | L          // F
+};
+#else
 // Direct port I/O for HMDL2416 display
 #include <avr/io.h>
 
@@ -40,6 +112,7 @@
 #define A0_PIN 8
 #define A1_PIN 9
 #define CS_PIN 10
+#endif
 
 // I2C setup for DS3231 real-time clock chip
 #include <Wire.h>
@@ -69,6 +142,10 @@ void ShowTime(const int displayFormat, const bool hexConjunction, const bool dec
   int i;
   int hour, minute, second;
   char buf[64];
+#ifdef DISPLAY_HEXLED
+  unsigned int digit;
+  unsigned int segs[NDIGITS];           // 16-bit unsigned binary
+#endif
 
   const char o = ' ';
   const char h = hexConjunction? '*': ' ';
@@ -82,7 +159,8 @@ void ShowTime(const int displayFormat, const bool hexConjunction, const bool dec
   snprintf(buf, sizeof (buf), "%04x %c %04o %c %02d:%02d:%02d %c %04d\n", HexTime, h, OctTime, o, hour, minute, second, d, DecTime);
   Serial.print(buf);
   Serial.flush();
-#else
+#endif
+
   switch (displayFormat)
   {
   case OCT_DISPLAY:
@@ -99,13 +177,78 @@ void ShowTime(const int displayFormat, const bool hexConjunction, const bool dec
     break;
   }
   
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < NDIGITS; i++) {
+#ifdef DISPLAY_HEXLED
+    if (buf[i] > '9')
+      digit = buf[i] - 'A' + 10;
+    else
+      digit = buf[i] - '0';
+      
+    segs[i] = HDSPsegtab[digit];   // Pick up segment pattern from table
+#else
     HMDL2416Write(3 - i, buf[i]);
+#endif
   }
+
+#ifdef DISPLAY_HEXLED
+  switch (displayFormat) {
+    case OCT_DISPLAY:
+    case HEX_DISPLAY:
+      break;
+    case DEC_DISPLAY:
+      segs[1] |= DP;
+      break;
+    case STD_DISPLAY:
+      segs[1] |= COLON;
+      break;
+  }
+  
+  LedHex_send(segs, NDIGITS);     // Send to displays
 #endif
 }
 
 
+#ifdef DISPLAY_HEXLED
+/* LedHex_send --- send 'ndig' 16-bit patterns to the LED driver chip */
+
+void LedHex_send(const unsigned int leds[], const int ndig)
+{
+  // Straightforward implementation using digitalWrite(). Could be made
+  // faster by using direct port I/O or SPI hardware.
+  int i;
+  int d;
+  
+  digitalWrite(LE_PIN, LOW);
+  digitalWrite(SCK_PIN, LOW);
+
+  // Send 16 bits to each pair of TLC5916 chips per digit
+  for (d = 0; d < ndig; d++) {
+    for (i = 0; i < 16; i++) {
+      // Send one bit on SDA pin
+      if (leds[d] & (1u << i))
+        digitalWrite(SDA_PIN, HIGH);
+      else
+        digitalWrite(SDA_PIN, LOW);
+      
+      delayMicroseconds(1);
+
+      // One microsecond HIGH pulse on SCK to clock the bit along
+      digitalWrite(SCK_PIN, HIGH);
+      
+      delayMicroseconds(1);
+      
+      digitalWrite(SCK_PIN, LOW);  
+    }
+  }
+
+  // One microsecond HIGH pulse on LE to latch all bits into all the digits
+  digitalWrite(LE_PIN, HIGH);
+  
+  delayMicroseconds(1);
+    
+  digitalWrite(LE_PIN, LOW);
+}
+#else
 void HMDL2416Write(int digit, int ch)
 {
   switch (digit) {
@@ -137,6 +280,7 @@ void HMDL2416Write(int digit, int ch)
   delayMicroseconds(2);
   digitalWrite(CS_PIN, HIGH);
 }
+#endif
 
 
 int bcd2bin(int bcd)
@@ -186,6 +330,14 @@ void setup(void)
 
 #ifdef SERIAL_OUTPUT
   Serial.begin(9600);
+#endif
+#ifdef DISPLAY_HEXLED
+  pinMode(LE_PIN, OUTPUT);
+  pinMode(SDA_PIN, OUTPUT);
+  pinMode(SCK_PIN, OUTPUT);
+  
+  digitalWrite(LE_PIN, LOW);
+  digitalWrite(SCK_PIN, LOW);
 #else
   int i;
   
