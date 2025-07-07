@@ -1,6 +1,6 @@
 /* HexClock --- display time in hex and percentage          2024-06-14 */
 
-//#define SERIAL_OUTPUT
+#define SERIAL_OUTPUT
 
 #define DISPLAY_HEXLED
 
@@ -439,16 +439,16 @@ void loop(void)
 
   now = micros();
   
-  oPeriod = now + USEC_PER_OCTOND;
-  uPeriod = now + USEC_PER_HEXOND;
-  mPeriod = now + USEC_PER_SECOND;
-  dPeriod = now + 8640000UL;
+  oPeriod = now;
+  uPeriod = now;
+  mPeriod = now;
+  dPeriod = now;
   
   while (1) {
     now = micros();
     
-    if (now > oPeriod) {
-      oPeriod = now + USEC_PER_OCTOND;
+    if ((now - oPeriod) > USEC_PER_OCTOND) {
+      oPeriod = now;
       if (OctTime < 4095u)
         OctTime++;
       else
@@ -457,8 +457,8 @@ void loop(void)
       //Serial.println("OCTOND");
     }
     
-    if (now > uPeriod) {
-      uPeriod = now + USEC_PER_HEXOND;
+    if ((now - uPeriod) > USEC_PER_HEXOND) {
+      uPeriod = now;
       if (HexTime < 65535u)
         HexTime++;
       else
@@ -467,8 +467,8 @@ void loop(void)
       //Serial.println("HEXOND");
     }
 
-    if (now > mPeriod) {
-      mPeriod = now + USEC_PER_SECOND;
+    if ((now - mPeriod) > USEC_PER_SECOND) {
+      mPeriod = now;
       if (SecondsPastMidnight < (SECONDS_PER_DAY - 1))
         SecondsPastMidnight++;
       else
@@ -477,8 +477,8 @@ void loop(void)
       //Serial.println("SECOND");
     }
 
-    if (now > dPeriod) {
-      dPeriod = now + 8640000UL;
+    if ((now - dPeriod) > 8640000UL) {
+      dPeriod = now;
       if (DecTime < 9999u)
         DecTime++;
       else
