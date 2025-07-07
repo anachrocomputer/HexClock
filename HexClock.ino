@@ -53,6 +53,8 @@
 #define SCK_PIN 13  // Arduino digital pin 13
 /* OE pin grounded */
 
+#define MODE_PIN (14)    // Pin A0 is also D14
+
 // 'F' is #defined as a macro by Arduino framework. Use an int instead
 const int F = (1 << 14);
 
@@ -358,8 +360,11 @@ void setup(void)
     digitalWrite(i, LOW);
 #endif
 
+  // Input pin for mode selection
+  pinMode(MODE_PIN, INPUT);
+  
   Wire.begin();
-  //DS3231Set (2025, 6, 30, 19, 11, 30, 1);
+  //DS3231Set (2025, 7, 7, 21, 30, 00, 1);
 
   for (reg = 0; reg < 0x13; reg++) {  
     Wire.beginTransmission(DS3231_ADDR);
@@ -435,6 +440,8 @@ void loop(void)
   bool hexUpdate = false;
   bool decUpdate = false;
   bool stdUpdate = false;
+  int mode;
+  int oldMode;
   int displayFormat = HEX_DISPLAY;
 
   now = micros();
@@ -443,6 +450,9 @@ void loop(void)
   uPeriod = now;
   mPeriod = now;
   dPeriod = now;
+
+  mode = digitalRead(MODE_PIN);
+  oldMode = mode;
   
   while (1) {
     now = micros();
@@ -493,6 +503,24 @@ void loop(void)
       hexUpdate = false;
       decUpdate = false;
       stdUpdate = false;
+    }
+
+    // Read the display mode switch
+    mode = digitalRead(MODE_PIN);
+
+    if (mode != oldMode) {
+      //Serial.print("mode = ");
+      //Serial.println(mode);
+      
+      if (mode == LOW) {
+        if (displayFormat == STD_DISPLAY)
+          displayFormat = HEX_DISPLAY;
+        else
+          displayFormat++;
+      }
+      
+      oldMode = mode;
+      delay(10);      // Debounce delay
     }
   }
 }

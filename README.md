@@ -19,14 +19,18 @@ Six digits would only be needed to show seconds in standard time format.
 A \#define in the code SERIAL_OUTPUT should be defined to select standard
 Arduino serial output at 9600 baud.
 This is more useful for debugging,
-but cannot co-exist with the LED display.
+but cannot co-exist with the HMDL2416 LED display.
 
 If that \#define is not present,
 the sketch will send the time in hex to an HP HMDL2416 16-segment
 four-digit display.
 The display is connected to the ATmega PORT D,
 and the control signals are to Arduino digital I/O pins.
-Only hex time is displayed at present.
+
+The pushbutton on Arduino A0 is used to switch between display modes
+at run-time.
+Pressing it will cycle through from the inital HEX to OCTAL,
+DECIMAL, and STANDARD (then back to HEX).
 
 ### Pinout ###
 
@@ -50,8 +54,12 @@ Only hex time is displayed at present.
 | D5      | D5      | D5       | 16           |               |
 | D6      | D6      | D6       | 17           |               |
 | +5V     | Vcc     | /BL      | 18           |               |
+| A0      | MODESW  |          |              |               |
 | A4/D18  | I2C SDA |          |              | I2C SDA       |
 | A5/D19  | I2C SCL |          |              | I2C SCL       |
+
+MODESW is connected to a 10k pull-up resistor and a tact-switch to GND.
+It's used as a digital input, not analog (Arduino digital pin 14).
 
 ## Real-Time Clock ##
 
