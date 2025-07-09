@@ -1,17 +1,18 @@
 ![Static Badge](https://img.shields.io/badge/MCU-ATmega328-green "MCU:ATmega328")
 ![Static Badge](https://img.shields.io/badge/BOARD-Arduino-green "BOARD:Arduino")
 ![Static Badge](https://img.shields.io/badge/DISPLAY-HMDL2416-green "DISPLAY:HMDL2416")
+![Static Badge](https://img.shields.io/badge/DISPLAY-LedHex-green "DISPLAY:LedHex")
 
 # HexClock #
 
 This Arduino sketch implements a clock with four different display formats:
-* Ordinary hours, minutes, and seconds
+* Ordinary hours, minutes, and optionally seconds
 * Octal time, 00000 to 07777
 * Hexadecimal time, 0x0000 to 0xFFFF
 * Decimal or percentage time, 00.00 to 99.99
 
-The actual display is optional at present, as four 7-segment digits
-on an LED display.
+The actual display is optional at present,
+as four 7-segment digits on an LED display.
 Six digits would only be needed to show seconds in standard time format.
 
 ## Optional Display ##
@@ -22,15 +23,41 @@ This is more useful for debugging,
 but cannot co-exist with the HMDL2416 LED display.
 
 If that \#define is not present,
-the sketch will send the time in hex to an HP HMDL2416 16-segment
-four-digit display.
-The display is connected to the ATmega PORT D,
-and the control signals are to Arduino digital I/O pins.
+the sketch will send the time in hex to either an HP HMDL2416 16-segment
+four-digit display or to four PCBs of my own design ("LedHex").
+The HMDL2416 display is connected to the ATmega PORT D,
+and the control signals are connected to Arduino digital I/O pins.
+
+## User Controls ##
 
 The pushbutton on Arduino A0 is used to switch between display modes
 at run-time.
 Pressing it will cycle through from the inital HEX to OCTAL,
 DECIMAL, and STANDARD (then back to HEX).
+
+No user controls are provided to set the time.
+
+## Example Times ##
+
+| Ordinary | Hexadecimal | Octal | Percentage |
+|----------|-------------|-------|------------|
+| 00:00:00 | 0000        | 0000  | 00.00      |
+| 01:30:00 | 1000        | 0400  | 06.25      |
+| 03:00:00 | 2000        | 1000  | 12.50      |
+| 04:30:00 | 3000        | 1400  | 18.75      |
+| 06:00:00 | 4000        | 2000  | 25.00      |
+| 07:30:00 | 5000        | 2400  | 31.25      |
+| 09:00:00 | 6000        | 3000  | 37.50      |
+| 10:30:00 | 7000        | 3400  | 43.75      |
+| 12:00:00 | 8000        | 4000  | 50.00      |
+| 13:30:00 | 9000        | 4400  | 56.25      |
+| 15:00:00 | A000        | 5000  | 62.50      |
+| 16:30:00 | B000        | 5400  | 68.75      |
+| 18:00:00 | C000        | 6000  | 75.00      |
+| 19:30:00 | D000        | 6400  | 81.25      |
+| 21:00:00 | E000        | 7000  | 87.50      |
+| 22:30:00 | F000        | 7400  | 93.75      |
+| 23:59:59 | FFFF        | 7777  | 99.99      |
 
 ### Pinout ###
 
@@ -67,6 +94,9 @@ A non-volatile real-time clock module using the DS3231 should be connected
 to the Arduino's I2C pins (A4 and A5) along with 10k pull-up resistors.
 This will be used to read the time and date at start-up.
 
+A line of code to set the DS3231 is included in 'setup()',
+commented-out.
+
 ## TODO ##
 
 The display will work with any type of 7-segment display,
@@ -81,25 +111,24 @@ and any other type of decimal (0-9) digit displays.
 
 Some Numitron displays have Russian Postcode digits,
 with two additional diagonal segments within the usual 7-segment arrangement.
+Would be nice to support those if I had some.
 
-Add a way to select which time format is desired on the display.
-Probably using an analog input pin because we're getting a bit short of digital pins.
+Synchronise internal Arduino time with the (more accurate) DS3231 I2C
+real-time clock chip.
+Probably best to do this every 90 minutes/6.25%/0x1000/0400,
+i.e. 16 times per day.
 
-Change the display wiring to allow use of serial pins D0 and D1 at the same
-time as the display is connected.
+Change the parallel display wiring to allow use of serial pins D0 and D1 at
+the same time as the HMDL2416 display is connected.
 This should eliminate the need for #define SERIAL_OUTPUT.
 
-## Example Times ##
+Find a better way to set the time without needing to recompile the code.
 
-| Ordinary | Hexadecimal | Octal | Percentage |
-|----------|-------------|-------|------------|
-| 00:00:00 | 0000        | 0000  | 00.00      |
-| 03:00:00 | 2000        | 1000  | 12.50      |
-| 06:00:00 | 4000        | 2000  | 25.00      |
-| 09:00:00 | 6000        | 3000  | 37.50      |
-| 12:00:00 | 8000        | 4000  | 50.00      |
-| 15:00:00 | A000        | 5000  | 62.50      |
-| 18:00:00 | C000        | 6000  | 75.00      |
-| 21:00:00 | E000        | 7000  | 87.50      |
-| 23:59:59 | FFFF        | 7777  | 99.99      |
+Implement other types of serially-interfaced display: TM1622,
+MAX7219, I2C 14-segment.
+
+Advanced goal: make this into a watch.
+Round OLED display?
+Tiny 7-segment?
+LCD for low power?
 
