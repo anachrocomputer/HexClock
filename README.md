@@ -17,16 +17,14 @@ Six digits would only be needed to show seconds in standard time format.
 
 ## Optional Display ##
 
-A \#define in the code SERIAL_OUTPUT should be defined to select standard
+The sketch generates standard
 Arduino serial output at 9600 baud.
-This is more useful for debugging,
-but cannot co-exist with the HMDL2416 LED display.
+This is useful for debugging.
 
-If that \#define is not present,
-the sketch will send the time in hex to either an HP HMDL2416 16-segment
+The sketch will send the time in hex to either an HP HMDL2416 16-segment
 four-digit display or to four PCBs of my own design ("LedHex").
-The HMDL2416 display is connected to the ATmega PORT D,
-and the control signals are connected to Arduino digital I/O pins.
+The HMDL2416 data bus is connected to the ATmega PORT D and Arduino pins 11 and 12,
+and the control signals are connected to other Arduino digital I/O pins.
 
 ## User Controls ##
 
@@ -73,15 +71,17 @@ No user controls are provided to set the time.
 | D8      | D8      | A0       | 8            |               |
 | +5V     | Vcc     | Vcc      | 9            | Vcc           |
 | GND     | GND     | GND      | 10           | GND           |
-| D0      | TxD     | D0       | 11           |               |
-| D1      | RxD     | D1       | 12           |               |
+| D0      | TxD     |          |              |               |
+| D1      | RxD     |          |              |               |
 | D2      | D2      | D2       | 13           |               |
 | D3      | D3      | D3       | 14           |               |
 | D4      | D4      | D4       | 15           |               |
 | D5      | D5      | D5       | 16           |               |
 | D6      | D6      | D6       | 17           |               |
+| D11     | D0      | D0       | 11           |               |
+| D12     | D1      | D1       | 12           |               |
 | +5V     | Vcc     | /BL      | 18           |               |
-| A0      | MODESW  |          |              |               |
+| A0/D14  | MODESW  |          |              |               |
 | A4/D18  | I2C SDA |          |              | I2C SDA       |
 | A5/D19  | I2C SCL |          |              | I2C SCL       |
 
@@ -117,10 +117,6 @@ Synchronise internal Arduino time with the (more accurate) DS3231 I2C
 real-time clock chip.
 Probably best to do this every 90 minutes/6.25%/0x1000/0400,
 i.e. 16 times per day.
-
-Change the parallel display wiring to allow use of serial pins D0 and D1 at
-the same time as the HMDL2416 display is connected.
-This should eliminate the need for #define SERIAL_OUTPUT.
 
 Find a better way to set the time without needing to recompile the code.
 

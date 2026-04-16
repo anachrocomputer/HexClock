@@ -1,7 +1,5 @@
 /* HexClock --- display time in hex and percentage          2024-06-14 */
 
-#define SERIAL_OUTPUT
-
 #define DISPLAY_HEXLED
 
 /*
@@ -105,10 +103,18 @@ const unsigned int HDSPsegtab[16] = {
 // Direct port I/O for HMDL2416 display
 #include <avr/io.h>
 
-#define WR_PIN 7
+#define WR_PIN 7    // AVR PORTD bit 7
 #define A0_PIN 8
 #define A1_PIN 9
 #define CS_PIN 10
+
+#define HMDL_D0 11  // Avoid using Arduino pins 0 and 1
+#define HMDL_D1 12  // because they're the UART
+#define HMDL_D2 2   // AVR PORTD bit 2
+#define HMDL_D3 3
+#define HMDL_D4 4
+#define HMDL_D5 5
+#define HMDL_D6 6   // AVR PORTD bit 6
 #endif
 
 #define MODE_PIN (14)    // Pin A0 is also D14
@@ -154,11 +160,9 @@ void ShowTime(const int displayFormat, const bool hexConjunction, const bool dec
   minute = (SecondsPastMidnight - (hour * 60UL * 60UL)) / 60UL;
   second = SecondsPastMidnight % 60;
 
-#ifdef SERIAL_OUTPUT
   snprintf(buf, sizeof (buf), "%04x %c %04o %c %02d:%02d:%02d %c %04d\n", HexTime, h, OctTime, o, hour, minute, second, d, DecTime);
   Serial.print(buf);
   Serial.flush();
-#endif
 
   switch (displayFormat)
   {
@@ -270,6 +274,16 @@ void HMDL2416Write(int digit, int ch)
   }
   
   PORTD = ch | 0x80;
+
+  if (ch & 0x01)
+    digitalWrite(HMDL_D0, HIGH);
+  else
+    digitalWrite(HMDL_D0, LOW);
+
+  if (ch & 0x02)
+    digitalWrite(HMDL_D1, HIGH);
+  else
+    digitalWrite(HMDL_D1, LOW);
   
   digitalWrite(CS_PIN, LOW);
   delayMicroseconds(2);
@@ -327,9 +341,8 @@ void setup(void)
   int hour, minute, second;
   char buf[64];
 
-#ifdef SERIAL_OUTPUT
   Serial.begin(9600);
-#endif
+
 #ifdef DISPLAY_HEXLED
   pinMode(LE_PIN, OUTPUT);
   pinMode(SDA_PIN, OUTPUT);
@@ -344,8 +357,11 @@ void setup(void)
   pinMode(A0_PIN, OUTPUT);
   pinMode(A1_PIN, OUTPUT);
   pinMode(CS_PIN, OUTPUT);
+
+  pinMode(HMDL_D0, OUTPUT);
+  pinMode(HMDL_D1, OUTPUT);
   
-  for (i = 0; i < 7; i++)
+  for (i = HMDL_D2; i <= HMDL_D6; i++)
     pinMode(i, OUTPUT);
   
   digitalWrite(WR_PIN, HIGH);
@@ -353,7 +369,10 @@ void setup(void)
   digitalWrite(A0_PIN, LOW);
   digitalWrite(A1_PIN, LOW);
   
-  for (i = 0; i < 7; i++)
+  digitalWrite(HMDL_D0, LOW);
+  digitalWrite(HMDL_D1, LOW);
+  
+  for (i = HMDL_D2; i <= HMDL_D6; i++)
     digitalWrite(i, LOW);
 #endif
 
@@ -361,7 +380,7 @@ void setup(void)
   pinMode(MODE_PIN, INPUT);
   
   Wire.begin();
-  //DS3231Set (2025, 7, 7, 21, 30, 00, 1);
+  //DS3231Set (2026, 4, 16, 22, 30, 00, 4);
 
   for (reg = 0; reg < 0x13; reg++) {  
     Wire.beginTransmission(DS3231_ADDR);
@@ -402,12 +421,10 @@ void setup(void)
   else
     year += 1900;
   
-#ifdef SERIAL_OUTPUT
   snprintf(buf, 64, "%04d-%02d-%02dT%02d:%02d:%02d %s\n",
                      year, month, day, hour, minute, second, Dayname[dow]);
   
   Serial.print(buf);
-#endif
 
   // Start just before midnight to test wrap-around
   //hour = 23;
