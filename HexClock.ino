@@ -53,18 +53,13 @@
 #define SCK_PIN 13  // Arduino digital pin 13
 /* OE pin grounded */
 
-#define MODE_PIN (14)    // Pin A0 is also D14
-
-// 'F' is #defined as a macro by Arduino framework. Use an int instead
-const int F = (1 << 14);
-
 // Usual 7-segment names
 #define A  (1 << 8)
 #define B  (1 << 0)
 #define C  (1 << 2)
 #define D  (1 << 4)
 #define E  (1 << 11)
-//#define F  (1 << 14)
+#define F  (1 << 14)
 #define G  (1 << 10)
 #define DP (1 << 12)
 
@@ -115,6 +110,8 @@ const unsigned int HDSPsegtab[16] = {
 #define A1_PIN 9
 #define CS_PIN 10
 #endif
+
+#define MODE_PIN (14)    // Pin A0 is also D14
 
 // I2C setup for DS3231 real-time clock chip
 #include <Wire.h>
